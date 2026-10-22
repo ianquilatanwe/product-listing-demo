@@ -1,26 +1,40 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-inter);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #fff;
+  color: #1d364d;
+}
+
+/* Shared shapes from the Figma kit. */
+@utility gradient-lilac {
+  background-image: linear-gradient(40deg, #f4e8f3 0%, #f3eff6 52%, #eee0f9 102%);
+}
+
+@utility pill {
+  @apply flex items-center gap-[7px] rounded-[28px] px-[14px] py-[10px] text-sm font-medium text-[#1d364d] focus-within:ring-2 focus-within:ring-[#3a4980];
+}
+
+@utility grid-products {
+  @apply grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 [&>li]:min-h-[488px];
+}
+
+@utility btn-primary {
+  @apply h-9 rounded-full border border-[#3a4980] bg-[#3a4980] text-sm font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.05)];
+}
+
+@utility btn-secondary {
+  @apply h-9 rounded-full border border-[#d0d5dd] bg-white text-sm font-semibold text-[#344054] shadow-[0_1px_2px_rgba(16,24,40,0.05)];
+}
+
+@utility page-btn {
+  @apply h-10 rounded border border-[#f3f3f3] disabled:opacity-40;
+}
+
+:focus-visible {
+  outline: 2px solid #3a4980;
+  outline-offset: 2px;
 }
