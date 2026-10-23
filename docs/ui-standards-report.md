@@ -61,3 +61,19 @@ Must   ✅ 32  ❌ 0    Should ✅ 27  ⚠️ 3    Nice ✅ 4
 — N/A · External links in new tabs: links open in the same tab · Forms: only a search box (with a hidden label)
 
 **Not checked:** screen reader, text-spacing override, real-device testing, Core Web Vitals on the deployed URL.
+
+## Re-check: one focus ring on pills (2026-10-23)
+
+Fix: the global `:focus-visible` outline was unlayered CSS, which beats every
+Tailwind utility, so the `focus:outline-none` on the inner `<select>`/`<input>`
+was ignored and a focused pill showed its ring plus a second outline inside it.
+The rule now sits in `@layer base`.
+
+✅ Visible focus · Category, Sort and Search pills show one ring (`#3a4980`, 6.8–8.6:1 on pill, hover and white); every other control keeps the outline
+✅ Focus-visible distinct from hover · hover changes only the pill background
+✅ Keyboard · Tab order unchanged; arrow keys change Sort; Quick View and cart keep outlines, Esc returns focus
+✅ axe 0 violations (page with a focused select, Quick View, cart) · no sideways scroll at 320/375/768/1440 · no console errors
+ℹ After a mouse click Chromium treats a select or text field as `:focus-visible`, so the ring also shows on click (kept on purpose: it matches native form fields)
+ℹ Skip link → `<main>` no longer draws an outline around the whole page (its `focus:outline-none` now applies, as intended)
+
+**Not checked:** Firefox/Safari, screen reader.
