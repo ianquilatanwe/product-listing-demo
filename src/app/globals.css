@@ -51,6 +51,43 @@ body:has(dialog[open]) {
   @apply flex items-center gap-[7px] rounded-[28px] px-[14px] py-[10px] text-sm font-medium text-ink focus-within:ring-2 focus-within:ring-brand;
 }
 
+/* The <select> inside a pill. Where the stylable select exists (Chromium), the
+   opened list is styled too; other browsers keep their native list. */
+@utility pill-select {
+  appearance: none;
+  @supports (appearance: base-select) {
+    &,
+    &::picker(select) {
+      appearance: base-select;
+    }
+    & {
+      min-block-size: 0; /* base-select's 24px minimum would make the pill taller */
+    }
+    &::picker-icon {
+      display: none; /* the pill draws its own chevron */
+    }
+    &::picker(select) {
+      margin-block: 8px;
+      padding: 4px;
+      border: 1px solid var(--color-edge);
+      border-radius: 12px;
+      background: white;
+      box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08);
+    }
+    & option {
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 8px;
+    }
+    & option:hover {
+      background: var(--color-fill);
+    }
+    & option:focus-visible {
+      outline-offset: -2px; /* keep the focus ring inside the list */
+    }
+  }
+}
+
 @utility grid-products {
   @apply grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 [&>li]:min-h-[488px];
 }

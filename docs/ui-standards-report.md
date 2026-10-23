@@ -77,3 +77,19 @@ The rule now sits in `@layer base`.
 ℹ Skip link → `<main>` no longer draws an outline around the whole page (its `focus:outline-none` now applies, as intended)
 
 **Not checked:** Firefox/Safari, screen reader.
+
+## Re-check: padding in the opened Category/Sort list (2026-10-23)
+
+Fix: the opened list was the browser's native popup, which Chromium won't pad.
+The shared `Select` now uses a `pill-select` utility: where the stylable select
+(`appearance: base-select`) exists, the list gets a rounded panel, 8 × 12px
+option padding, a ✓ on the selected option, a hover fill and an inset focus
+ring. Firefox and Safari keep their native list.
+
+✅ Keyboard · Enter/arrows open the list, arrows move, Enter picks (URL updates), Esc closes and focus returns to the select
+✅ One indicator per state · hover = fill, keyboard focus = inset ring
+✅ axe 0 violations (list open, page) · no sideways scroll at 320/375/768/1440 with the list open at 375 · no console errors
+✅ Pill height unchanged (40px; 44px on touch)
+ℹ The pills now size to the chosen value instead of the longest option (e.g. Sort is 109px on "Featured", 174px on "Price: high to low")
+
+**Not checked:** Firefox/Safari fallback, screen reader.

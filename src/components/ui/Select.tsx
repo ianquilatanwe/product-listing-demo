@@ -20,7 +20,7 @@ export function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="cursor-pointer appearance-none bg-transparent pr-5 capitalize focus:outline-none"
+        className="pill-select cursor-pointer bg-transparent pr-5 capitalize focus:outline-none"
       >
         {options.map(([v, text]) => (
           <option key={v} value={v}>
