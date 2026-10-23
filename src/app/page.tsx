@@ -1,27 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
-
-type Product = {
-  id: number;
-  title: string;
-  price: number;
-  rating: number;
-  category: string;
-  brand?: string;
-  thumbnail: string;
-};
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CartDrawer, QuickView } from "@/components/Dialogs";
+import { CardSkeleton, ProductCard } from "@/components/ProductCard";
+import { useOnline, useServiceWorker, useStoredState } from "@/lib/hooks";
+import { label, PRODUCTS_URL, type Product } from "@/lib/products";
 
 type State =
   | { status: "loading" }
   | { status: "error" }
   | { status: "done"; products: Product[] };
 
-// limit=0 returns the whole catalogue (~200 items), so search, category,
-// sort and pagination all run in the browser on a single request.
-const API =
-  "https://dummyjson.com/products?limit=0&select=title,price,rating,category,brand,thumbnail";
 const PAGE_SIZE = 12;
 const NONE: Product[] = [];
 
@@ -33,70 +23,111 @@ const SORTS = {
 };
 type SortKey = keyof typeof SORTS;
 
-const label = (slug: string) => slug.replace(/-/g, " ");
-const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
-
 export default function ProductListPage() {
+  useServiceWorker();
+  const online = useOnline();
   const [state, setState] = useState<State>({ status: "loading" });
-  const [attempt, setAttempt] = useState(0); // bumped by "Try again" to refetch
+  const [attempt, setAttempt] = useState(0); // bumped to refetch
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [sort, setSort] = useState<SortKey>("featured");
+  const [onlyShortlist, setOnlyShortlist] = useState(false);
   const [page, setPage] = useState(1);
-  const [cart, setCart] = useState(0);
-  const [shortlist, setShortlist] = useState<Set<number>>(new Set());
+  const [quickView, setQuickView] = useState<Product | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
+  // Saved on the device, so they survive reloads and offline sessions.
+  const [cart, setCart] = useStoredState<Record<number, number>>("cart", {});
+  const [shortlist, setShortlist] = useStoredState<number[]>("shortlist", []);
+  const toolbar = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
-    setState({ status: "loading" });
-    fetch(API, { signal: controller.signal })
+    // Skeletons only on first load; a refetch keeps showing the current list.
+    setState((s) => (s.status === "done" ? s : { status: "loading" }));
+    fetch(PRODUCTS_URL, { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
       .then((data: { products: Product[] }) => setState({ status: "done", products: data.products }))
       .catch((err) => {
-        if (err.name !== "AbortError") setState({ status: "error" });
+        if (err.name !== "AbortError") setState((s) => (s.status === "done" ? s : { status: "error" }));
       });
     return () => controller.abort();
   }, [attempt]);
 
+  // Coming back online refreshes the data (and recovers from an error).
+  useEffect(() => {
+    const refresh = () => setAttempt((n) => n + 1);
+    window.addEventListener("online", refresh);
+    return () => window.removeEventListener("online", refresh);
+  }, []);
+
   const all = state.status === "done" ? state.products : NONE;
+  const byId = useMemo(() => new Map(all.map((p) => [p.id, p])), [all]);
   const categories = useMemo(() => [...new Set(all.map((p) => p.category))].sort(), [all]);
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     return all
       .filter((p) => !category || p.category === category)
+      .filter((p) => !onlyShortlist || shortlist.includes(p.id))
       .filter((p) => !q || `${p.title} ${p.brand ?? ""} ${p.category}`.toLowerCase().includes(q))
       .sort(SORTS[sort].fn);
-  }, [all, query, category, sort]);
+  }, [all, query, category, sort, onlyShortlist, shortlist]);
 
   const pageCount = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
   const visible = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const cartLines = Object.entries(cart).flatMap(([id, qty]) => {
+    const product = byId.get(Number(id));
+    return product ? [{ product, qty }] : [];
+  });
+  const cartCount = cartLines.reduce((sum, l) => sum + l.qty, 0);
 
   // Every filter change goes back to page 1.
   const filter = <T,>(set: (v: T) => void) => (v: T) => {
     set(v);
     setPage(1);
   };
+  const clearFilters = () => {
+    setQuery("");
+    setCategory("");
+    setOnlyShortlist(false);
+    setPage(1);
+  };
+  const scrollToProducts = () => toolbar.current?.scrollIntoView({ behavior: "smooth" });
 
-  const toggleShortlist = (id: number) =>
-    setShortlist((s) => {
-      const next = new Set(s);
-      if (!next.delete(id)) next.add(id);
+  const addToCart = (p: Product) => setCart((c) => ({ ...c, [p.id]: Math.min(p.stock, (c[p.id] ?? 0) + 1) }));
+  const setQty = (id: number, qty: number) =>
+    setCart((c) => {
+      const next = { ...c };
+      if (qty <= 0) delete next[id];
+      else next[id] = qty;
       return next;
     });
+  const toggleShortlist = (id: number) =>
+    setShortlist((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   return (
     <>
-      <Header cart={cart} />
+      <Header cart={cartCount} onCart={() => setCartOpen(true)} />
+      {!online && (
+        <p role="status" className="bg-[#1d364d] px-4 py-2 text-center text-sm text-white">
+          You&apos;re offline. Showing products saved on this device; your cart and shortlist are kept.
+        </p>
+      )}
 
       <main className="mx-auto max-w-[1280px] px-4 sm:px-6 xl:px-0">
-        <Banner />
+        <Banner
+          onBuy={() => {
+            clearFilters();
+            setCategory("mobile-accessories");
+            scrollToProducts();
+          }}
+        />
 
-        <div className="mt-10 flex flex-wrap items-center justify-between gap-3 sm:mt-16">
+        <div ref={toolbar} className="mt-10 flex scroll-mt-6 flex-wrap items-center justify-between gap-3 sm:mt-16">
           <div className="flex flex-wrap gap-[11px]">
-            <label className="pill bg-[#ebedec]">
+            <label className="pill bg-[#ebedec] hover:bg-[#e2e5e4]">
               <span className="sr-only">Search products</span>
               <input
                 type="search"
@@ -110,46 +141,64 @@ export default function ProductListPage() {
               label="Category"
               value={category}
               onChange={filter(setCategory)}
-              className="bg-[#ebedec]"
+              className="bg-[#ebedec] hover:bg-[#e2e5e4]"
               options={[["", "All categories"], ...categories.map((c) => [c, label(c)] as const)]}
             />
+            <button
+              onClick={() => filter(setOnlyShortlist)(!onlyShortlist)}
+              aria-pressed={onlyShortlist}
+              className={`pill motion-safe:transition ${onlyShortlist ? "bg-[#3a4980] text-white" : "bg-[#ebedec] hover:bg-[#e2e5e4]"}`}
+            >
+              ♥ Shortlist{shortlist.length > 0 && ` (${shortlist.length})`}
+            </button>
           </div>
           <Select
             label="Sort by"
             value={sort}
             onChange={filter((v: string) => setSort(v as SortKey))}
-            className="border border-[#e0e0e0] bg-white"
+            className="border border-[#e0e0e0] bg-white hover:border-[#c4c9d1]"
             options={Object.entries(SORTS).map(([k, s]) => [k, s.label] as const)}
           />
         </div>
 
         <section aria-live="polite" aria-busy={state.status === "loading"} className="mt-8 sm:mt-12">
           {state.status === "loading" && (
-            <ul className="grid-products">
-              {Array.from({ length: 8 }, (_, i) => (
-                <li key={i} className="h-[488px] animate-pulse rounded-[18.48px] bg-[#f7f5f7]" />
-              ))}
-            </ul>
+            <>
+              <p className="sr-only">Loading products…</p>
+              <ul className="grid-products">
+                {Array.from({ length: 8 }, (_, i) => (
+                  <CardSkeleton key={i} />
+                ))}
+              </ul>
+            </>
           )}
 
           {state.status === "error" && (
-            <Message title="Couldn't load products" body="Check your connection and try again.">
-              <button className="btn-primary px-6" onClick={() => setAttempt((n) => n + 1)}>
+            <Message
+              alert
+              title={online ? "Couldn't load products" : "You're offline"}
+              body={
+                online
+                  ? "Check your connection and try again."
+                  : "There's no saved copy yet. Products will load as soon as you're back online."
+              }
+            >
+              <button className="btn-primary px-6" disabled={!online} onClick={() => setAttempt((n) => n + 1)}>
                 Try again
               </button>
             </Message>
           )}
 
           {state.status === "done" && results.length === 0 && (
-            <Message title="No products found" body="Try a different search or category.">
-              <button
-                className="btn-secondary px-6"
-                onClick={() => {
-                  setQuery("");
-                  setCategory("");
-                  setPage(1);
-                }}
-              >
+            <Message
+              title={onlyShortlist && shortlist.length === 0 ? "Nothing shortlisted yet" : "No products found"}
+              body={
+                onlyShortlist && shortlist.length === 0
+                  ? "Tap the heart on any product to save it here."
+                  : "Try a different search or category."
+              }
+            >
+              <button className="btn-secondary px-6" onClick={clearFilters}>
                 Clear filters
               </button>
             </Message>
@@ -165,40 +214,66 @@ export default function ProductListPage() {
                   <ProductCard
                     key={p.id}
                     product={p}
-                    shortlisted={shortlist.has(p.id)}
-                    onAdd={() => setCart((n) => n + 1)}
+                    inCart={cart[p.id] ?? 0}
+                    shortlisted={shortlist.includes(p.id)}
+                    onAdd={() => addToCart(p)}
                     onShortlist={() => toggleShortlist(p.id)}
+                    onQuickView={() => setQuickView(p)}
                   />
                 ))}
               </ul>
-              <Pagination page={page} count={pageCount} onChange={setPage} />
+              <Pagination
+                page={page}
+                count={pageCount}
+                onChange={(p) => {
+                  setPage(p);
+                  scrollToProducts();
+                }}
+              />
             </>
           )}
         </section>
       </main>
+
+      <QuickView
+        product={quickView}
+        inCart={quickView ? (cart[quickView.id] ?? 0) : 0}
+        shortlisted={!!quickView && shortlist.includes(quickView.id)}
+        onAdd={() => quickView && addToCart(quickView)}
+        onShortlist={() => quickView && toggleShortlist(quickView.id)}
+        onClose={() => setQuickView(null)}
+      />
+      <CartDrawer
+        open={cartOpen}
+        lines={cartLines}
+        online={online}
+        onQty={setQty}
+        onCheckout={() => setCart({})}
+        onClose={() => setCartOpen(false)}
+      />
 
       <footer className="gradient-lilac mt-20 px-4 py-16 text-center text-sm text-[#1d364d] sm:mt-28">
         <p className="text-2xl font-extrabold italic text-[#0d3356]">FashionHub</p>
         <p className="mt-4">
           Design:{" "}
           <a
-            className="underline"
+            className="underline hover:text-[#3a4980]"
             href="https://www.figma.com/community/file/1206898292713093171/single-product-product-list-page"
           >
             Single Product &amp; Product List Page
           </a>{" "}
           by Kirit Goti (
-          <a className="underline" href="https://creativecommons.org/licenses/by/4.0/">
+          <a className="underline hover:text-[#3a4980]" href="https://creativecommons.org/licenses/by/4.0/">
             CC BY 4.0
           </a>
           ) · Data:{" "}
-          <a className="underline" href="https://dummyjson.com">
+          <a className="underline hover:text-[#3a4980]" href="https://dummyjson.com">
             DummyJSON
           </a>
         </p>
         <p className="mt-2">
           Built by{" "}
-          <a className="underline" href="https://github.com/ianquilatanwe">
+          <a className="underline hover:text-[#3a4980]" href="https://github.com/ianquilatanwe">
             Ian Quilatan
           </a>
         </p>
@@ -207,7 +282,7 @@ export default function ProductListPage() {
   );
 }
 
-function Header({ cart }: { cart: number }) {
+function Header({ cart, onCart }: { cart: number; onCart: () => void }) {
   return (
     <header className="border-b border-[#ededed]">
       <div className="mx-auto flex max-w-[1440px] items-center justify-between px-4 py-5 sm:px-6 xl:px-20">
@@ -222,32 +297,31 @@ function Header({ cart }: { cart: number }) {
           </nav>
         </div>
         <div className="flex items-center gap-[17px]">
-          <div className="relative grid size-[50px] place-items-center rounded-full bg-[#f5f1ee]">
+          <button
+            onClick={onCart}
+            aria-label={`Open cart, ${cart} ${cart === 1 ? "item" : "items"}`}
+            className="relative grid size-[50px] place-items-center rounded-full bg-[#f5f1ee] motion-safe:transition hover:bg-[#ece3db] active:scale-95"
+          >
             <Image src="/bag.svg" alt="" width={21} height={21} />
-            <span className="sr-only" role="status">
-              Cart: {cart} {cart === 1 ? "item" : "items"}
-            </span>
             {cart > 0 && (
               <span
+                key={cart}
                 aria-hidden
-                className="absolute -top-[3px] left-[32px] grid h-5 min-w-5 place-items-center rounded-full border-[1.5px] border-white bg-[#1d364d] px-1 text-[11px] font-semibold text-white"
+                className="absolute -top-[3px] left-[32px] grid h-5 min-w-5 place-items-center rounded-full border-[1.5px] border-white bg-[#1d364d] px-1 text-[11px] font-semibold text-white motion-safe:animate-[pop_0.35s_ease-out]"
               >
                 {cart}
               </span>
             )}
-          </div>
+          </button>
+          <span className="sr-only" role="status">
+            {cart} {cart === 1 ? "item" : "items"} in cart
+          </span>
           <div className="relative hidden size-[50px] place-items-center rounded-full bg-[#eeeff8] sm:grid">
             <Image src="/bell.svg" alt="" width={20} height={20} />
             <span className="absolute left-[29px] top-[2px] size-[10px] rounded-full border-[1.5px] border-white bg-[#d75951]" />
           </div>
           <div className="flex items-center gap-[14px]">
-            <Image
-              src="/avatar.png"
-              alt=""
-              width={50}
-              height={50}
-              className="size-[50px] rounded-full object-cover"
-            />
+            <Image src="/avatar.png" alt="" width={50} height={50} className="size-[50px] rounded-full object-cover" />
             <div className="hidden flex-col gap-[7px] md:flex">
               <p className="text-xs font-medium text-[#c0c3c6]">Good Morning!</p>
               <p className="font-semibold text-[#1d364d]">Scarlet Johnson</p>
@@ -259,14 +333,15 @@ function Header({ cart }: { cart: number }) {
   );
 }
 
-function Banner() {
+function Banner({ onBuy }: { onBuy: () => void }) {
   return (
     <section className="gradient-lilac relative mt-6 flex min-h-[287px] items-center rounded-[18px] p-6 sm:mt-12 sm:px-[55px]">
       <div className="relative z-10 max-w-[377px]">
-        <h1 className="text-[26px] font-bold text-[#3a4980] sm:text-[34px]">
-          Grab Upto 50% Off On Selected Headphone
-        </h1>
-        <button className="mt-6 h-[49px] w-[136px] rounded-full bg-[#3a4980] font-semibold text-white sm:mt-11">
+        <h1 className="text-[26px] font-bold text-[#3a4980] sm:text-[34px]">Grab Upto 50% Off On Selected Headphone</h1>
+        <button
+          onClick={onBuy}
+          className="mt-6 h-[49px] w-[136px] rounded-full bg-[#3a4980] font-semibold text-white motion-safe:transition hover:bg-[#2f3c6c] hover:shadow-lg active:scale-95 sm:mt-11"
+        >
           Buy Now
         </button>
       </div>
@@ -300,7 +375,7 @@ function Select({
   className: string;
 }) {
   return (
-    <label className={`pill relative ${className}`}>
+    <label className={`pill relative motion-safe:transition ${className}`}>
       <span className="sr-only">{label}</span>
       <select
         value={value}
@@ -318,114 +393,46 @@ function Select({
   );
 }
 
-function ProductCard({
-  product: p,
-  shortlisted,
-  onAdd,
-  onShortlist,
-}: {
-  product: Product;
-  shortlisted: boolean;
-  onAdd: () => void;
-  onShortlist: () => void;
-}) {
-  return (
-    <li className="flex flex-col overflow-hidden rounded-[18.48px] border-[1.54px] border-[#f7f5f7]">
-      <div className="relative aspect-square bg-[#f7f5f7]">
-        <Image
-          src={p.thumbnail}
-          alt={p.title}
-          fill
-          sizes="(min-width: 1280px) 305px, (min-width: 640px) 50vw, 100vw"
-          className="object-contain p-[12%]"
-        />
-        <button
-          onClick={onShortlist}
-          aria-pressed={shortlisted}
-          aria-label={`Shortlist ${p.title}`}
-          className={`absolute right-[15px] top-[15px] rounded-full p-[10.78px] ${shortlisted ? "bg-[#fde4e2]" : "bg-[#fcfcfd]"}`}
-        >
-          <Image src="/heart.svg" alt="" width={24.64} height={24.64} />
-        </button>
-      </div>
-      <div className="flex flex-1 flex-col px-5 pb-6 pt-6">
-        <div className="flex items-start justify-between gap-3">
-          <h2 title={p.title} className="line-clamp-1 text-lg font-medium text-[#667085]">
-            {p.title}
-          </h2>
-          <p className="whitespace-nowrap text-lg font-bold text-[#344054]">{usd.format(p.price)}</p>
-        </div>
-        <p className="mt-1 text-sm capitalize text-[#98a2b3]">{p.brand ?? label(p.category)}</p>
-        <div className="mt-3 flex items-center gap-2">
-          <Stars rating={p.rating} />
-          <span className="text-sm text-[#98a2b3]">({p.rating.toFixed(1)})</span>
-        </div>
-        <div className="mt-auto flex gap-[11px] pt-6">
-          <button onClick={onAdd} className="btn-primary flex-1">
-            Add To Cart
-          </button>
-          <button onClick={onShortlist} aria-pressed={shortlisted} className="btn-secondary flex-1">
-            {shortlisted ? "Shortlisted" : "Add Shortlist"}
-          </button>
-        </div>
-      </div>
-    </li>
-  );
-}
-
-// Gold stars clipped to the exact rating width over a faded row of the same icon.
-function Stars({ rating }: { rating: number }) {
-  const row = (
-    <span className="flex">
-      {Array.from({ length: 5 }, (_, i) => (
-        <Image key={i} src="/star.svg" alt="" width={17} height={17} className="shrink-0" />
-      ))}
-    </span>
-  );
-  return (
-    <span className="relative inline-block" role="img" aria-label={`Rated ${rating.toFixed(1)} out of 5`}>
-      <span className="opacity-25 grayscale">{row}</span>
-      <span className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${(rating / 5) * 100}%` }}>
-        {row}
-      </span>
-    </span>
-  );
-}
-
 function Pagination({ page, count, onChange }: { page: number; count: number; onChange: (p: number) => void }) {
   if (count < 2) return null;
   // Up to 7 page numbers, kept centred on the current page.
   const start = Math.min(Math.max(1, page - 3), Math.max(1, count - 6));
   const pages = Array.from({ length: Math.min(7, count) }, (_, i) => start + i);
-  const go = (p: number) => {
-    onChange(p);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
   return (
     <nav aria-label="Pagination" className="mt-12 flex flex-wrap justify-center gap-2 text-sm text-[#667085] sm:mt-[74px]">
-      <button className="page-btn px-[10px]" disabled={page === 1} onClick={() => go(page - 1)}>
+      <button className="page-btn px-[10px]" disabled={page === 1} onClick={() => onChange(page - 1)}>
         Previous
       </button>
       {pages.map((p) => (
         <button
           key={p}
-          onClick={() => go(p)}
+          onClick={() => onChange(p)}
           aria-current={p === page ? "page" : undefined}
           className={`page-btn w-10 font-semibold ${p === page ? "gradient-lilac border-transparent text-[#1d364d]" : ""}`}
         >
           {p}
         </button>
       ))}
-      <button className="page-btn px-[10px] font-medium" disabled={page === count} onClick={() => go(page + 1)}>
+      <button className="page-btn px-[10px] font-medium" disabled={page === count} onClick={() => onChange(page + 1)}>
         Next
       </button>
     </nav>
   );
 }
 
-function Message({ title, body, children }: { title: string; body: string; children: React.ReactNode }) {
+function Message({
+  title,
+  body,
+  alert = false,
+  children,
+}: {
+  title: string;
+  body: string;
+  alert?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div role={title.startsWith("Couldn") ? "alert" : undefined} className="py-20 text-center">
+    <div role={alert ? "alert" : undefined} className="py-20 text-center">
       <h2 className="text-xl font-semibold text-[#1d364d]">{title}</h2>
       <p className="mt-2 text-[#667085]">{body}</p>
       <div className="mt-6">{children}</div>

@@ -9,6 +9,11 @@ body {
   color: #1d364d;
 }
 
+/* Lock page scroll while a dialog (quick view, cart) is open. */
+body:has(dialog[open]) {
+  overflow: hidden;
+}
+
 /* Shared shapes from the Figma kit. */
 @utility gradient-lilac {
   background-image: linear-gradient(40deg, #f4e8f3 0%, #f3eff6 52%, #eee0f9 102%);
@@ -22,16 +27,81 @@ body {
   @apply grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 [&>li]:min-h-[488px];
 }
 
+/* Buttons: hover, pressed and disabled states. */
 @utility btn-primary {
-  @apply h-9 rounded-full border border-[#3a4980] bg-[#3a4980] text-sm font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.05)];
+  @apply h-9 cursor-pointer rounded-full border border-[#3a4980] bg-[#3a4980] text-sm font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition hover:border-[#2f3c6c] hover:bg-[#2f3c6c] active:scale-[0.97] disabled:cursor-not-allowed disabled:border-[#c5cae0] disabled:bg-[#c5cae0] disabled:active:scale-100;
 }
 
 @utility btn-secondary {
-  @apply h-9 rounded-full border border-[#d0d5dd] bg-white text-sm font-semibold text-[#344054] shadow-[0_1px_2px_rgba(16,24,40,0.05)];
+  @apply h-9 cursor-pointer rounded-full border border-[#d0d5dd] bg-white text-sm font-semibold text-[#344054] shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition hover:bg-[#f9fafb] active:scale-[0.97];
 }
 
 @utility page-btn {
-  @apply h-10 rounded border border-[#f3f3f3] disabled:opacity-40;
+  @apply h-10 cursor-pointer rounded border border-[#f3f3f3] transition hover:border-[#d0d5dd] hover:text-[#1d364d] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[#f3f3f3];
+}
+
+@utility stepper-btn {
+  @apply grid size-8 cursor-pointer place-items-center rounded-full text-lg text-[#344054] transition hover:bg-[#f2f4f7] disabled:cursor-not-allowed disabled:text-[#d0d5dd] disabled:hover:bg-transparent;
+}
+
+/* Loading placeholders with a soft moving shine. */
+@utility skeleton {
+  background: linear-gradient(90deg, #f2f4f7 0%, #e9ebef 50%, #f2f4f7 100%) 0 0 / 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Dialogs: quick view pops in, the cart slides in from the right. */
+dialog::backdrop {
+  background: rgb(13 51 86 / 0.4);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  dialog.modal[open] {
+    animation: dialog-in 0.2s ease-out;
+  }
+  dialog.drawer[open] {
+    animation: drawer-in 0.25s ease-out;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
 }
 
 :focus-visible {
