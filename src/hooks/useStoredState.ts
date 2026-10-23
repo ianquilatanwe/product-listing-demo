@@ -1,20 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
-
-/** True while the browser has a network connection; updates live. */
-export function useOnline() {
-  return useSyncExternalStore(
-    (onChange) => {
-      window.addEventListener("online", onChange);
-      window.addEventListener("offline", onChange);
-      return () => {
-        window.removeEventListener("online", onChange);
-        window.removeEventListener("offline", onChange);
-      };
-    },
-    () => navigator.onLine,
-    () => true, // server render: assume online
-  );
-}
+import { useEffect, useState } from "react";
 
 /**
  * useState that survives reloads and offline sessions via localStorage.
@@ -44,13 +28,4 @@ export function useStoredState<T>(key: string, initial: T) {
   }, [key, value, loaded]);
 
   return [value, setValue] as const;
-}
-
-/** Registers public/sw.js (production only, so dev reloads stay fresh). */
-export function useServiceWorker() {
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
-  }, []);
 }

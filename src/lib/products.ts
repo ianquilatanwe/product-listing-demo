@@ -20,4 +20,5 @@ export const PRODUCTS_URL =
 
 export const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
+/** "home-decoration" → "home decoration" */
 export const label = (slug: string) => slug.replace(/-/g, " ");

@@ -1,12 +1,41 @@
 @import "tailwindcss";
 
+/* Design tokens from the Figma kit. Use them by name (text-ink, bg-brand, …);
+   one-off colours that appear in a single spot of the design stay inline there. */
+@theme {
+  --color-ink: #1d364d; /* headings and body text */
+  --color-ink-strong: #0d3356; /* logo */
+  --color-brand: #3a4980;
+  --color-brand-hover: #2f3c6c;
+  --color-brand-muted: #c5cae0; /* disabled primary button */
+  --color-body: #344054; /* prices, button text */
+  --color-muted: #667085; /* secondary text (4.8:1 on white) */
+  --color-subtle: #475467; /* text on grey pills */
+  --color-edge: #d0d5dd; /* control borders */
+  --color-line: #ededed; /* dividers */
+  --color-line-soft: #f3f3f3;
+  --color-surface: #f7f5f7; /* image backdrops, card borders */
+  --color-fill: #f2f4f7; /* hover fill, skeletons */
+  --color-pill: #ebedec;
+  --color-pill-hover: #e2e5e4;
+  --color-danger: #d75951; /* shortlist heart */
+  --color-danger-soft: #fde4e2;
+  --color-error: #b42318;
+  --color-error-soft: #fee4e2;
+  --color-warning: #b54708;
+  --color-warning-soft: #fef0c7;
+  --color-success: #12b76a;
+  --color-success-strong: #027a48;
+  --color-success-soft: #ecfdf3;
+}
+
 @theme inline {
   --font-sans: var(--font-inter);
 }
 
 body {
   background: #fff;
-  color: #1d364d;
+  color: var(--color-ink);
 }
 
 /* Lock page scroll while a dialog (quick view, cart) is open. */
@@ -20,7 +49,7 @@ body:has(dialog[open]) {
 }
 
 @utility pill {
-  @apply flex items-center gap-[7px] rounded-[28px] px-[14px] py-[10px] text-sm font-medium text-[#1d364d] focus-within:ring-2 focus-within:ring-[#3a4980];
+  @apply flex items-center gap-[7px] rounded-[28px] px-[14px] py-[10px] text-sm font-medium text-ink focus-within:ring-2 focus-within:ring-brand;
 }
 
 @utility grid-products {
@@ -29,26 +58,28 @@ body:has(dialog[open]) {
 
 /* Buttons: hover, pressed and disabled states. */
 @utility btn-primary {
-  @apply h-9 cursor-pointer rounded-full border border-[#3a4980] bg-[#3a4980] text-sm font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition hover:border-[#2f3c6c] hover:bg-[#2f3c6c] active:scale-[0.97] disabled:cursor-not-allowed disabled:border-[#c5cae0] disabled:bg-[#c5cae0] disabled:active:scale-100;
+  @apply h-9 cursor-pointer rounded-full border border-brand bg-brand text-sm font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition hover:border-brand-hover hover:bg-brand-hover active:scale-[0.97] disabled:cursor-not-allowed disabled:border-brand-muted disabled:bg-brand-muted disabled:active:scale-100;
 }
 
 @utility btn-secondary {
-  @apply h-9 cursor-pointer rounded-full border border-[#d0d5dd] bg-white text-sm font-semibold text-[#344054] shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition hover:bg-[#f9fafb] active:scale-[0.97];
+  @apply h-9 cursor-pointer rounded-full border border-edge bg-white text-sm font-semibold text-body shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition hover:bg-[#f9fafb] active:scale-[0.97];
 }
 
 @utility page-btn {
-  @apply h-10 cursor-pointer rounded border border-[#f3f3f3] transition hover:border-[#d0d5dd] hover:text-[#1d364d] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[#f3f3f3];
+  @apply h-10 cursor-pointer rounded border border-line-soft transition hover:border-edge hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line-soft;
 }
 
 @utility stepper-btn {
-  @apply grid size-8 cursor-pointer place-items-center rounded-full text-lg text-[#344054] transition hover:bg-[#f2f4f7] disabled:cursor-not-allowed disabled:text-[#d0d5dd] disabled:hover:bg-transparent;
+  @apply grid size-8 cursor-pointer place-items-center rounded-full text-lg text-body transition hover:bg-fill disabled:cursor-not-allowed disabled:text-edge disabled:hover:bg-transparent;
 }
 
 /* Touch screens get 44px targets; mouse users keep the design's sizes. */
 @media (pointer: coarse) {
   .btn-primary,
   .btn-secondary,
-  .pill,
+  .pill {
+    min-height: 44px;
+  }
   .page-btn {
     min-height: 44px;
     min-width: 44px;
@@ -62,7 +93,7 @@ body:has(dialog[open]) {
 
 /* Loading placeholders with a soft moving shine. */
 @utility skeleton {
-  background: linear-gradient(90deg, #f2f4f7 0%, #e9ebef 50%, #f2f4f7 100%) 0 0 / 200% 100%;
+  background: linear-gradient(90deg, var(--color-fill) 0%, #e9ebef 50%, var(--color-fill) 100%) 0 0 / 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
 }
 
@@ -121,6 +152,6 @@ dialog::backdrop {
 }
 
 :focus-visible {
-  outline: 2px solid #3a4980;
+  outline: 2px solid var(--color-brand);
   outline-offset: 2px;
 }
