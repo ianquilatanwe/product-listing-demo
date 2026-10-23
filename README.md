@@ -20,12 +20,13 @@ A Figma e-commerce design turned into a responsive Next.js + Tailwind page, wire
 
 **Data**
 - Loads ~200 products from [DummyJSON](https://dummyjson.com) in one request; search, category, sort, a shortlist filter and pagination all run in the browser.
-- Card-shaped loading skeletons, an empty state with "Clear filters", and an error state with "Try again".
+- Card-shaped loading skeletons, an empty state with "Clear filters", and an error state with "Try again" (requests time out after 10 s).
+- Filters, sort and page live in the URL, so refresh, Back/Forward and shared links keep the view.
 
 **Interactions**
 - Hover: cards lift, images zoom, and the design's "Quick View" pill appears (also on keyboard focus).
 - Quick View dialog with full description, discount and stock status.
-- Cart drawer with quantity steppers, remove, subtotal and a demo checkout.
+- Cart drawer with quantity steppers, Remove with **Undo**, subtotal and a demo checkout.
 - "Buy Now" jumps to the headphones category.
 
 **Button states**
@@ -39,20 +40,34 @@ A Figma e-commerce design turned into a responsive Next.js + Tailwind page, wire
 - Product data is network-first (fresh when online, saved copy when not); scripts and images are cache-first.
 - Cart and shortlist are saved on the device, so they survive reloads and offline sessions.
 - An offline banner appears when the connection drops, and data refreshes on reconnect.
+- Installable as an app (web manifest, icons, `theme-color`); the installed app opens offline.
 
-**Accessibility**
-- Native `<dialog>` (focus trap, Esc to close, focus returns to the card), labelled controls, visible focus rings, screen-reader text for cart count and ratings, reduced-motion support.
+**Accessibility (WCAG 2.2 AA)**
+- 0 axe violations across every state; full results in [docs/ui-standards-report.md](docs/ui-standards-report.md).
+- Native `<dialog>` (focus trap, Esc to close, focus returns to the card), skip link, labelled controls, visible focus rings, screen-reader text for cart count and ratings, 44px touch targets on phones, reduced-motion support.
+- The design's light greys failed contrast (2.6:1), so text uses the kit's darker grey (4.8:1).
+
+**Sharing**
+- Social preview image, custom favicon and app icons; friendly error page if anything crashes.
 
 ## Stack
 
 Next.js 15 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · `next/image` · Service Worker + Cache Storage. No extra libraries.
 
-| File | What's in it |
+## How the code is organised
+
+The page only wires things together; behaviour lives in small modules with simple interfaces.
+
+| Folder | What's in it |
 | --- | --- |
-| [`src/app/page.tsx`](src/app/page.tsx) | Page layout, data loading, filters, cart and shortlist state |
-| [`src/components/ProductCard.tsx`](src/components/ProductCard.tsx) | Card, button states, stars, skeleton |
-| [`src/components/Dialogs.tsx`](src/components/Dialogs.tsx) | Quick View and cart drawer |
-| [`src/lib/hooks.ts`](src/lib/hooks.ts) | Online status, saved state, service worker registration |
+| [`src/app/`](src/app) | Route files only: page, layout (skip link, metadata), error page, manifest, icons |
+| [`src/lib/catalog.ts`](src/lib/catalog.ts) | Pure browsing rules: URL ↔ view, filter/sort/paginate. Tested in [`catalog.test.ts`](src/lib/catalog.test.ts) |
+| [`src/hooks/`](src/hooks) | `useProducts` (fetch, retry, timeout), `useUrlView` (URL sync), `useCart`, `useShortlist`, `useOnline`, `useStoredState`, `useServiceWorker` |
+| [`src/components/ui/`](src/components/ui) | Reusable primitives: Dialog, Select, Spinner, FadeImage, StateMessage |
+| [`src/components/products/`](src/components/products) | Card, actions (button states), Quick View, toolbar, pagination, skeleton |
+| [`src/components/cart/`](src/components/cart) | Cart drawer with Undo |
+| [`src/components/layout/`](src/components/layout) | Header, banner, footer |
+| [`src/app/globals.css`](src/app/globals.css) | Design tokens (`text-ink`, `bg-brand`, …) and shared button/pill styles |
 | [`public/sw.js`](public/sw.js) | Offline caching |
 
 ## Run it
@@ -61,6 +76,12 @@ Next.js 15 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · `next/ima
 npm install
 npm run build
 npm start
+```
+
+Tests (Node's built-in runner, no extra packages):
+
+```bash
+npm test
 ```
 
 Open http://localhost:3000. The service worker only runs in a production build. To try offline mode, load the page once, then switch DevTools → Network to **Offline** and reload.

@@ -43,7 +43,7 @@ export function AddToCartButton({
       onClick={add}
       disabled={soldOut || maxed || phase !== "idle"}
       aria-busy={phase === "adding"}
-      className={`btn-primary ${phase === "added" ? "!border-success !bg-success !text-white" : ""} ${className}`}
+      className={`btn-primary ${phase === "added" ? "!border-success-strong !bg-success-strong !text-white" : ""} ${className}`}
     >
       <span aria-live="polite" className="flex items-center justify-center gap-2">
         {phase === "adding" ? (
@@ -69,7 +69,7 @@ export function ShortlistButton({ on, onClick, className = "" }: { on: boolean; 
     <button
       onClick={onClick}
       aria-pressed={on}
-      className={`btn-secondary ${on ? "!border-danger !text-danger" : ""} ${className}`}
+      className={`btn-secondary ${on ? "!border-danger !text-error" : ""} ${className}`}
     >
       {on ? "♥ Shortlisted" : "Add Shortlist"}
     </button>

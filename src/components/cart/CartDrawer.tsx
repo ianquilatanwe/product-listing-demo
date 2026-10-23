@@ -103,7 +103,7 @@ export function CartDrawer({
 
         {phase === "done" ? (
           <div role="status" className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-            <span className="grid size-14 place-items-center rounded-full bg-success-soft text-2xl text-success">✓</span>
+            <span className="grid size-14 place-items-center rounded-full bg-success-soft text-2xl text-success-strong">✓</span>
             <p className="text-lg font-semibold">Order placed</p>
             <p className="text-sm text-muted">This is a demo, so nothing was charged.</p>
             <button onClick={onClose} className="btn-secondary mt-3 px-6">
