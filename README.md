@@ -1,10 +1,10 @@
 # FashionHub – Product Listing (Figma → Next.js)
 
-A Figma e-commerce design turned into a responsive Next.js + Tailwind page, wired to a live product API, with a working cart and offline support.
+A free Figma Community e-commerce design turned into a responsive Next.js + Tailwind page, wired to a live product API, with a working cart and offline support.
 
 **Live demo:** _coming soon_
 
-![Desktop](docs/desktop-top.png)
+![The Figma design next to the built page](docs/figma-vs-build.png)
 
 | Quick view | Cart | Offline |
 | --- | --- | --- |
@@ -17,6 +17,11 @@ A Figma e-commerce design turned into a responsive Next.js + Tailwind page, wire
 **From the design**
 - Matched the Figma "Product List Page" frame: header, promo banner, filter pills, product cards, pagination.
 - Responsive from 375px phones to 1440px desktops (1 to 4 columns).
+
+**Design → code decisions**
+- **Filled in what a static design leaves out:** hover, focus, loading, empty, error and offline states, and every button state.
+- **Made the placeholders real:** the design's filter pills (Headphone type, Price, Review…) became working search, category, shortlist and sort controls for the live catalogue.
+- **Fixed what failed:** the design's light greys failed WCAG contrast (2.6:1), so text uses the kit's darker grey (4.8:1); prices show in USD to match the API.
 
 **Data**
 - Loads ~200 products from [DummyJSON](https://dummyjson.com) in one request; search, category, sort, a shortlist filter and pagination all run in the browser.
@@ -45,8 +50,6 @@ A Figma e-commerce design turned into a responsive Next.js + Tailwind page, wire
 **Accessibility (WCAG 2.2 AA)**
 - 0 axe violations across every state; full results in [docs/ui-standards-report.md](docs/ui-standards-report.md).
 - Native `<dialog>` (focus trap, Esc to close, focus returns to the card), skip link, labelled controls, visible focus rings, screen-reader text for cart count and ratings, 44px touch targets on phones, reduced-motion support.
-- The design's light greys failed contrast (2.6:1), so text uses the kit's darker grey (4.8:1).
-
 **Sharing**
 - Social preview image, custom favicon and app icons; friendly error page if anything crashes.
 
