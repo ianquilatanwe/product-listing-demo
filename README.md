@@ -50,6 +50,7 @@ A free Figma Community e-commerce design turned into a responsive Next.js + Tail
 **Accessibility (WCAG 2.2 AA)**
 - 0 axe violations across every state; full results in [docs/ui-standards-report.md](docs/ui-standards-report.md).
 - Native `<dialog>` (focus trap, Esc to close, focus returns to the card), skip link, labelled controls, visible focus rings, screen-reader text for cart count and ratings, 44px touch targets on phones, reduced-motion support.
+
 **Sharing**
 - Social preview image, custom favicon and app icons; friendly error page if anything crashes.
 
