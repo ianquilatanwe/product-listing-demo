@@ -1,0 +1,1 @@
+FashionHub product listing demo: Figma design built in Next.js with a live product API, cart, quick view and offline support

@@ -23,16 +23,43 @@ const SORTS = {
 };
 type SortKey = keyof typeof SORTS;
 
+// What the shopper is looking at. It lives in the URL
+// (?q=&category=&sort=&shortlist=1&page=2) so refresh, Back/Forward and
+// shared links all keep it.
+type View = { q: string; category: string; sort: SortKey; shortlist: boolean; page: number };
+const DEFAULT_VIEW: View = { q: "", category: "", sort: "featured", shortlist: false, page: 1 };
+
+function viewFromUrl(): View {
+  const p = new URLSearchParams(window.location.search);
+  const sort = p.get("sort") ?? "";
+  return {
+    q: p.get("q") ?? "",
+    category: p.get("category") ?? "",
+    sort: sort in SORTS ? (sort as SortKey) : "featured",
+    shortlist: p.get("shortlist") === "1",
+    page: Math.max(1, Math.floor(Number(p.get("page"))) || 1),
+  };
+}
+
+function searchFromView(v: View) {
+  const p = new URLSearchParams();
+  if (v.q) p.set("q", v.q);
+  if (v.category) p.set("category", v.category);
+  if (v.sort !== "featured") p.set("sort", v.sort);
+  if (v.shortlist) p.set("shortlist", "1");
+  if (v.page > 1) p.set("page", String(v.page));
+  const s = p.toString();
+  return s ? `?${s}` : "";
+}
+
 export default function ProductListPage() {
   useServiceWorker();
   const online = useOnline();
   const [state, setState] = useState<State>({ status: "loading" });
   const [attempt, setAttempt] = useState(0); // bumped to refetch
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("");
-  const [sort, setSort] = useState<SortKey>("featured");
-  const [onlyShortlist, setOnlyShortlist] = useState(false);
-  const [page, setPage] = useState(1);
+  const [view, setView] = useState(DEFAULT_VIEW);
+  const [urlRead, setUrlRead] = useState(false);
+  const pushHistory = useRef(false);
   const [quickView, setQuickView] = useState<Product | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   // Saved on the device, so they survive reloads and offline sessions.
@@ -44,7 +71,8 @@ export default function ProductListPage() {
     const controller = new AbortController();
     // Skeletons only on first load; a refetch keeps showing the current list.
     setState((s) => (s.status === "done" ? s : { status: "loading" }));
-    fetch(PRODUCTS_URL, { signal: controller.signal })
+    // Give up after 10 s so a stalled network shows the error state, not endless skeletons.
+    fetch(PRODUCTS_URL, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]) })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -63,19 +91,46 @@ export default function ProductListPage() {
     return () => window.removeEventListener("online", refresh);
   }, []);
 
+  // URL → view: on load and on Back/Forward.
+  useEffect(() => {
+    const sync = () => setView(viewFromUrl());
+    sync();
+    setUrlRead(true);
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, []);
+
+  // View → URL. Typing a search replaces the history entry; other changes add
+  // one, so Back steps through categories and pages, not every keystroke.
+  useEffect(() => {
+    if (!urlRead) return; // don't wipe the incoming URL before it's been read
+    const search = searchFromView(view);
+    if (search === window.location.search) return;
+    const url = search || window.location.pathname;
+    if (pushHistory.current) window.history.pushState(null, "", url);
+    else window.history.replaceState(null, "", url);
+  }, [view, urlRead]);
+
+  /** Change the view; any change other than the page goes back to page 1. */
+  const update = (patch: Partial<View>, { push = true } = {}) => {
+    pushHistory.current = push;
+    setView((v) => ({ ...v, page: 1, ...patch }));
+  };
+
   const all = state.status === "done" ? state.products : NONE;
   const byId = useMemo(() => new Map(all.map((p) => [p.id, p])), [all]);
   const categories = useMemo(() => [...new Set(all.map((p) => p.category))].sort(), [all]);
   const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = view.q.trim().toLowerCase();
     return all
-      .filter((p) => !category || p.category === category)
-      .filter((p) => !onlyShortlist || shortlist.includes(p.id))
+      .filter((p) => !view.category || p.category === view.category)
+      .filter((p) => !view.shortlist || shortlist.includes(p.id))
       .filter((p) => !q || `${p.title} ${p.brand ?? ""} ${p.category}`.toLowerCase().includes(q))
-      .sort(SORTS[sort].fn);
-  }, [all, query, category, sort, onlyShortlist, shortlist]);
+      .sort(SORTS[view.sort].fn);
+  }, [all, view.q, view.category, view.sort, view.shortlist, shortlist]);
 
   const pageCount = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
+  const page = Math.min(view.page, pageCount); // a shared link may point past the last page
   const visible = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const cartLines = Object.entries(cart).flatMap(([id, qty]) => {
     const product = byId.get(Number(id));
@@ -83,17 +138,7 @@ export default function ProductListPage() {
   });
   const cartCount = cartLines.reduce((sum, l) => sum + l.qty, 0);
 
-  // Every filter change goes back to page 1.
-  const filter = <T,>(set: (v: T) => void) => (v: T) => {
-    set(v);
-    setPage(1);
-  };
-  const clearFilters = () => {
-    setQuery("");
-    setCategory("");
-    setOnlyShortlist(false);
-    setPage(1);
-  };
+  const clearFilters = () => update({ q: "", category: "", shortlist: false });
   const scrollToProducts = () => toolbar.current?.scrollIntoView({ behavior: "smooth" });
 
   const addToCart = (p: Product) => setCart((c) => ({ ...c, [p.id]: Math.min(p.stock, (c[p.id] ?? 0) + 1) }));
@@ -109,6 +154,12 @@ export default function ProductListPage() {
 
   return (
     <>
+      <a
+        href="#main"
+        className="sr-only z-50 rounded-full bg-[#3a4980] px-4 py-2 font-semibold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+      >
+        Skip to products
+      </a>
       <Header cart={cartCount} onCart={() => setCartOpen(true)} />
       {!online && (
         <p role="status" className="bg-[#1d364d] px-4 py-2 text-center text-sm text-white">
@@ -116,11 +167,10 @@ export default function ProductListPage() {
         </p>
       )}
 
-      <main className="mx-auto max-w-[1280px] px-4 sm:px-6 xl:px-0">
+      <main id="main" tabIndex={-1} className="mx-auto max-w-[1280px] px-4 focus:outline-none sm:px-6 xl:px-0">
         <Banner
           onBuy={() => {
-            clearFilters();
-            setCategory("mobile-accessories");
+            update({ q: "", category: "mobile-accessories", shortlist: false });
             scrollToProducts();
           }}
         />
@@ -131,31 +181,31 @@ export default function ProductListPage() {
               <span className="sr-only">Search products</span>
               <input
                 type="search"
-                value={query}
-                onChange={(e) => filter(setQuery)(e.target.value)}
+                value={view.q}
+                onChange={(e) => update({ q: e.target.value }, { push: false })}
                 placeholder="Search products"
-                className="w-40 bg-transparent placeholder:text-[#667085] focus:outline-none"
+                className="w-40 bg-transparent placeholder:text-[#475467] focus:outline-none"
               />
             </label>
             <Select
               label="Category"
-              value={category}
-              onChange={filter(setCategory)}
+              value={view.category}
+              onChange={(category) => update({ category })}
               className="bg-[#ebedec] hover:bg-[#e2e5e4]"
               options={[["", "All categories"], ...categories.map((c) => [c, label(c)] as const)]}
             />
             <button
-              onClick={() => filter(setOnlyShortlist)(!onlyShortlist)}
-              aria-pressed={onlyShortlist}
-              className={`pill motion-safe:transition ${onlyShortlist ? "bg-[#3a4980] text-white" : "bg-[#ebedec] hover:bg-[#e2e5e4]"}`}
+              onClick={() => update({ shortlist: !view.shortlist })}
+              aria-pressed={view.shortlist}
+              className={`pill motion-safe:transition ${view.shortlist ?"bg-[#3a4980] text-white" : "bg-[#ebedec] hover:bg-[#e2e5e4]"}`}
             >
               ♥ Shortlist{shortlist.length > 0 && ` (${shortlist.length})`}
             </button>
           </div>
           <Select
             label="Sort by"
-            value={sort}
-            onChange={filter((v: string) => setSort(v as SortKey))}
+            value={view.sort}
+            onChange={(sort) => update({ sort: sort as SortKey })}
             className="border border-[#e0e0e0] bg-white hover:border-[#c4c9d1]"
             options={Object.entries(SORTS).map(([k, s]) => [k, s.label] as const)}
           />
@@ -191,9 +241,9 @@ export default function ProductListPage() {
 
           {state.status === "done" && results.length === 0 && (
             <Message
-              title={onlyShortlist && shortlist.length === 0 ? "Nothing shortlisted yet" : "No products found"}
+              title={view.shortlist && shortlist.length === 0 ? "Nothing shortlisted yet" : "No products found"}
               body={
-                onlyShortlist && shortlist.length === 0
+                view.shortlist && shortlist.length === 0
                   ? "Tap the heart on any product to save it here."
                   : "Try a different search or category."
               }
@@ -226,7 +276,7 @@ export default function ProductListPage() {
                 page={page}
                 count={pageCount}
                 onChange={(p) => {
-                  setPage(p);
+                  update({ page: p });
                   scrollToProducts();
                 }}
               />
@@ -323,7 +373,7 @@ function Header({ cart, onCart }: { cart: number; onCart: () => void }) {
           <div className="flex items-center gap-[14px]">
             <Image src="/avatar.png" alt="" width={50} height={50} className="size-[50px] rounded-full object-cover" />
             <div className="hidden flex-col gap-[7px] md:flex">
-              <p className="text-xs font-medium text-[#c0c3c6]">Good Morning!</p>
+              <p className="text-xs font-medium text-[#667085]">Good Morning!</p>
               <p className="font-semibold text-[#1d364d]">Scarlet Johnson</p>
             </div>
           </div>

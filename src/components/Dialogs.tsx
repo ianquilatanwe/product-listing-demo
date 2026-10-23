@@ -46,7 +46,7 @@ function CloseButton({ onClick }: { onClick: () => void }) {
     <button
       onClick={onClick}
       aria-label="Close"
-      className="grid size-10 place-items-center rounded-full text-2xl leading-none text-[#667085] motion-safe:transition hover:bg-[#f2f4f7] active:scale-95"
+      className="close-btn grid size-10 place-items-center rounded-full text-2xl leading-none text-[#667085] motion-safe:transition hover:bg-[#f2f4f7] active:scale-95"
     >
       ×
     </button>
@@ -90,7 +90,7 @@ export function QuickView({
           </div>
           <div className="flex flex-col p-6 sm:p-8">
             <div className="flex items-start justify-between gap-4">
-              <p className="text-sm capitalize text-[#98a2b3]">
+              <p className="text-sm capitalize text-[#667085]">
                 {label(p.category)}
                 {p.brand && ` · ${p.brand}`}
               </p>
@@ -103,13 +103,13 @@ export function QuickView({
             </h2>
             <div className="mt-3 flex items-center gap-2">
               <Stars rating={p.rating} />
-              <span className="text-sm text-[#98a2b3]">({p.rating.toFixed(1)})</span>
+              <span className="text-sm text-[#667085]">({p.rating.toFixed(1)})</span>
             </div>
             <p className="mt-5 flex items-baseline gap-3">
               <span className="text-2xl font-bold text-[#344054]">{usd.format(p.price)}</span>
               {p.discountPercentage >= 1 && (
                 <>
-                  <span className="text-[#98a2b3] line-through">
+                  <span className="text-[#667085] line-through">
                     {usd.format(p.price / (1 - p.discountPercentage / 100))}
                   </span>
                   <span className="rounded-full bg-[#ecfdf3] px-2 py-0.5 text-xs font-semibold text-[#027a48]">
@@ -149,14 +149,38 @@ export function CartDrawer({
 }) {
   const [phase, setPhase] = useState<"idle" | "processing" | "done">("idle");
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => () => clearTimeout(timer.current), []);
+  // The last removed line, kept for a few seconds so Remove can be undone.
+  const [removed, setRemoved] = useState<CartLine | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current);
+      clearTimeout(undoTimer.current);
+    },
+    [],
+  );
 
   // Each time the drawer opens, start from the cart view again.
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setPhase("idle");
+    if (open) {
+      setPhase("idle");
+      setRemoved(null);
+    }
   }
+
+  const remove = (line: CartLine) => {
+    onQty(line.product.id, 0);
+    setRemoved(line);
+    clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => setRemoved(null), 6000);
+  };
+  const undo = () => {
+    if (removed) onQty(removed.product.id, removed.qty);
+    clearTimeout(undoTimer.current);
+    setRemoved(null);
+  };
 
   const subtotal = lines.reduce((sum, l) => sum + l.product.price * l.qty, 0);
   const count = lines.reduce((sum, l) => sum + l.qty, 0);
@@ -175,9 +199,20 @@ export function CartDrawer({
       <div className="flex h-full flex-col">
         <div className="flex items-center justify-between border-b border-[#ededed] px-6 py-4">
           <h2 id="cart-title" className="text-lg font-semibold">
-            Your cart {count > 0 && <span className="text-[#98a2b3]">({count})</span>}
+            Your cart {count > 0 && <span className="text-[#667085]">({count})</span>}
           </h2>
           <CloseButton onClick={onClose} />
+        </div>
+
+        <div role="status" className="empty:hidden mx-6 mt-4">
+          {removed && phase !== "done" && (
+            <div className="flex items-center justify-between gap-4 rounded-lg bg-[#1d364d] px-4 py-3 text-sm text-white">
+              <span className="line-clamp-1">Removed {removed.product.title}</span>
+              <button onClick={undo} className="shrink-0 font-semibold underline underline-offset-2 hover:text-[#dfe3f3]">
+                Undo
+              </button>
+            </div>
+          )}
         </div>
 
         {phase === "done" ? (
@@ -233,7 +268,7 @@ export function CartDrawer({
                         </button>
                       </div>
                       <button
-                        onClick={() => onQty(p.id, 0)}
+                        onClick={() => remove({ product: p, qty })}
                         className="text-sm text-[#667085] underline-offset-2 hover:text-[#b42318] hover:underline"
                       >
                         Remove

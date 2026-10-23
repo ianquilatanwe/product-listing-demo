@@ -5,7 +5,7 @@
 //   build files unique names, so a cached copy never goes stale.
 // ponytail: one cache, never pruned per entry; bump CACHE when files in
 // public/ change, and add an expiry if the catalogue grows past a few hundred images.
-const CACHE = "fashionhub-v1";
+const CACHE = "fashionhub-v2";
 const API = "https://dummyjson.com/";
 
 self.addEventListener("install", (event) => {

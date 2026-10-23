@@ -57,10 +57,10 @@ export function ProductCard({ product: p, inCart, shortlisted, onAdd, onShortlis
           </h2>
           <p className="whitespace-nowrap text-lg font-bold text-[#344054]">{usd.format(p.price)}</p>
         </div>
-        <p className="mt-1 text-sm capitalize text-[#98a2b3]">{p.brand ?? label(p.category)}</p>
+        <p className="mt-1 text-sm capitalize text-[#667085]">{p.brand ?? label(p.category)}</p>
         <div className="mt-3 flex items-center gap-2">
           <Stars rating={p.rating} />
-          <span className="text-sm text-[#98a2b3]">({p.rating.toFixed(1)})</span>
+          <span className="text-sm text-[#667085]">({p.rating.toFixed(1)})</span>
         </div>
         <div className="mt-auto flex gap-[11px] pt-6">
           <AddToCartButton product={p} inCart={inCart} onAdd={onAdd} className="flex-1" />

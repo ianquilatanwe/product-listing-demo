@@ -44,6 +44,22 @@ body:has(dialog[open]) {
   @apply grid size-8 cursor-pointer place-items-center rounded-full text-lg text-[#344054] transition hover:bg-[#f2f4f7] disabled:cursor-not-allowed disabled:text-[#d0d5dd] disabled:hover:bg-transparent;
 }
 
+/* Touch screens get 44px targets; mouse users keep the design's sizes. */
+@media (pointer: coarse) {
+  .btn-primary,
+  .btn-secondary,
+  .pill,
+  .page-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .stepper-btn,
+  .close-btn {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 /* Loading placeholders with a soft moving shine. */
 @utility skeleton {
   background: linear-gradient(90deg, #f2f4f7 0%, #e9ebef 50%, #f2f4f7 100%) 0 0 / 200% 100%;
