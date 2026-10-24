@@ -79,7 +79,7 @@ export function QuickView({
             </p>
             <p className="mt-4 leading-relaxed text-muted">{p.description}</p>
             <div className="mt-auto flex gap-[11px] pt-8">
-              <AddToCartButton product={p} inCart={inCart} onAdd={onAdd} className="flex-1" />
+              <AddToCartButton key={p.id} product={p} inCart={inCart} onAdd={onAdd} className="flex-1" />
               <ShortlistButton on={shortlisted} onClick={onShortlist} className="flex-1" />
             </div>
           </div>

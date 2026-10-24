@@ -16,6 +16,7 @@ test("URL round-trips a view and omits defaults", () => {
 test("bad URL values fall back to defaults", () => {
   assert.deepEqual(parseView("?sort=cheapest&page=-4"), DEFAULT_VIEW);
   assert.equal(parseView("?page=2.7").page, 2);
+  assert.equal(parseView("?page=Infinity").page, 1);
 });
 
 test("browse filters, sorts, pages and clamps", () => {
@@ -25,6 +26,10 @@ test("browse filters, sorts, pages and clamps", () => {
   assert.deepEqual(laptops.visible.map((p) => p.id), [99]);
 
   assert.equal(browse(all, { ...DEFAULT_VIEW, q: "lenovo" }, []).total, 1);
+  // Search matches the category as shown ("home decoration") and as its slug.
+  const decor = [product(1, { category: "home-decoration" })];
+  assert.equal(browse(decor, { ...DEFAULT_VIEW, q: "home decoration" }, []).total, 1);
+  assert.equal(browse(decor, { ...DEFAULT_VIEW, q: "home-decoration" }, []).total, 1);
   assert.deepEqual(browse(all, { ...DEFAULT_VIEW, shortlist: true }, [2, 5]).visible.map((p) => p.id), [2, 5]);
 
   const cheapest = browse(all, { ...DEFAULT_VIEW, sort: "price-asc" }, []);

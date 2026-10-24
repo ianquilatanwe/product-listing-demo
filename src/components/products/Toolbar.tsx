@@ -14,6 +14,9 @@ export function Toolbar({
   shortlistCount: number;
   onChange: (patch: Partial<View>, options?: { push?: boolean }) => void;
 }) {
+  // A category from the URL that isn't listed (yet, or at all) still gets an
+  // option, so the pill shows the filter that's actually applied.
+  const shown = view.category && !categories.includes(view.category) ? [...categories, view.category] : categories;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap gap-[11px]">
@@ -32,7 +35,7 @@ export function Toolbar({
           value={view.category}
           onChange={(category) => onChange({ category })}
           className="bg-pill hover:bg-pill-hover"
-          options={[["", "All categories"], ...categories.map((c) => [c, label(c)] as const)]}
+          options={[["", "All categories"], ...shown.map((c) => [c, label(c)] as const)]}
         />
         <button
           onClick={() => onChange({ shortlist: !view.shortlist })}

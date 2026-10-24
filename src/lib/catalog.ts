@@ -1,4 +1,4 @@
-import type { Product } from "./products";
+import { label, type Product } from "./products.ts";
 
 // Rules for browsing the catalogue: what the shopper is looking at (the View),
 // how it maps to the URL, and how the product list is filtered, sorted and
@@ -21,12 +21,13 @@ export const DEFAULT_VIEW: View = { q: "", category: "", sort: "featured", short
 export function parseView(search: string): View {
   const p = new URLSearchParams(search);
   const sort = p.get("sort") ?? "";
+  const page = Math.floor(Number(p.get("page")));
   return {
     q: p.get("q") ?? "",
     category: p.get("category") ?? "",
     sort: sort in SORTS ? (sort as SortKey) : "featured",
     shortlist: p.get("shortlist") === "1",
-    page: Math.max(1, Math.floor(Number(p.get("page"))) || 1),
+    page: Number.isSafeInteger(page) && page > 1 ? page : 1,
   };
 }
 
@@ -51,7 +52,7 @@ export function browse(products: Product[], view: View, shortlist: number[]) {
   const results = products
     .filter((p) => !view.category || p.category === view.category)
     .filter((p) => !view.shortlist || shortlist.includes(p.id))
-    .filter((p) => !q || `${p.title} ${p.brand ?? ""} ${p.category}`.toLowerCase().includes(q))
+    .filter((p) => !q || `${p.title} ${p.brand ?? ""} ${p.category} ${label(p.category)}`.toLowerCase().includes(q))
     .sort(SORTS[view.sort].compare);
   const pageCount = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
   const page = Math.min(view.page, pageCount);
