@@ -2,7 +2,7 @@
 
 A free Figma Community e-commerce design turned into a responsive Next.js + Tailwind page, wired to a live product API, with a working cart and offline support.
 
-**Live demo:** _coming soon_
+**Live demo:** [product-listing-demo-ten.vercel.app](https://product-listing-demo-ten.vercel.app/)
 
 ![The Figma design next to the built page](docs/figma-vs-build.png)
 
