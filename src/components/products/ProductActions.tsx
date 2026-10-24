@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Spinner } from "@/components/ui/Spinner";
 import type { Product } from "@/lib/products";
 
@@ -23,18 +23,18 @@ export function AddToCartButton({
   className?: string;
 }) {
   const [phase, setPhase] = useState<"idle" | "adding" | "added">("idle");
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => () => clearTimeout(timer.current), []);
 
   const soldOut = product.stock === 0;
   const maxed = !soldOut && inCart >= product.stock;
 
+  // The timers are deliberately not cancelled on unmount: a click must still
+  // add the item if the card leaves the screen (page change, filter) mid-way.
   const add = () => {
     setPhase("adding");
-    timer.current = setTimeout(() => {
+    setTimeout(() => {
       onAdd();
       setPhase("added");
-      timer.current = setTimeout(() => setPhase("idle"), 1500);
+      setTimeout(() => setPhase("idle"), 1500);
     }, 600);
   };
 

@@ -12,11 +12,12 @@ const CHECKOUT_MS = 1200;
 
 /**
  * Side drawer listing the cart: quantity steppers, Remove with Undo, subtotal
- * and a demo checkout (disabled offline). Each open starts on the cart view.
+ * and a demo checkout (disabled offline). Closing clears a finished order.
  */
 export function CartDrawer({
   open,
   lines,
+  count,
   online,
   onQty,
   onCheckout,
@@ -24,6 +25,7 @@ export function CartDrawer({
 }: {
   open: boolean;
   lines: CartLine[];
+  count: number;
   online: boolean;
   onQty: (id: number, qty: number) => void;
   onCheckout: () => void;
@@ -45,8 +47,11 @@ export function CartDrawer({
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) {
-      setPhase("idle");
+    // Reset on close (closing has no animation, so nothing flashes). A checkout
+    // still processing carries on: it can't be started twice, and if it finishes
+    // while closed, the next open shows "Order placed".
+    if (!open) {
+      setPhase((p) => (p === "done" ? "idle" : p));
       setRemoved(null);
     }
   }
@@ -64,7 +69,6 @@ export function CartDrawer({
   };
 
   const subtotal = lines.reduce((sum, l) => sum + l.product.price * l.qty, 0);
-  const count = lines.reduce((sum, l) => sum + l.qty, 0);
 
   const checkout = () => {
     setPhase("processing");

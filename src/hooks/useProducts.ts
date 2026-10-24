@@ -18,8 +18,11 @@ export function useProducts() {
 
   useEffect(() => {
     const controller = new AbortController();
+    // A stall aborts with TimeoutError (shown as an error); unmount/retry aborts
+    // with AbortError (ignored). Hand-rolled because AbortSignal.any needs Safari 17.4+.
+    const timeout = setTimeout(() => controller.abort(new DOMException("Request timed out", "TimeoutError")), TIMEOUT_MS);
     setState((s) => (s.status === "done" ? s : { status: "loading" }));
-    fetch(PRODUCTS_URL, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(TIMEOUT_MS)]) })
+    fetch(PRODUCTS_URL, { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -27,8 +30,12 @@ export function useProducts() {
       .then((data: { products: Product[] }) => setState({ status: "done", products: data.products }))
       .catch((err) => {
         if (err.name !== "AbortError") setState((s) => (s.status === "done" ? s : { status: "error" }));
-      });
-    return () => controller.abort();
+      })
+      .finally(() => clearTimeout(timeout));
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
   }, [attempt]);
 
   // Coming back online refreshes the data (and recovers from an error).

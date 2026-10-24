@@ -146,6 +146,7 @@ export default function ProductListPage() {
       <CartDrawer
         open={cartOpen}
         lines={cart.lines}
+        count={cart.count}
         online={online}
         onQty={cart.setQty}
         onCheckout={cart.clear}
